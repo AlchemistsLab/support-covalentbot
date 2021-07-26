@@ -134,7 +134,7 @@ function postTicket(data, user) {
             if (!err) {
                 //обработка внутри таблицы tickets
                 db.all(`SELECT id FROM tickets WHERE discord_id='${user.getDiscordID()}' AND status='WAITTING' ORDER BY id DESC LIMIT 1;`, function (err, rows) {
-                    data.message.reply(`Excellent! Your ticket has been sent!\nNumber: ${rows[0].id}\nTitle: ${user.ticket.title}\nОписание: ${user.ticket.description}`);
+                    data.message.reply(`Excellent! Your ticket has been sent!\nNumber: ${rows[0].id}\nTitle: ${user.ticket.title}\nDescription: ${user.ticket.description}`);
                     userManager.createUser(user.getDiscordID(), user.userName());
                 });
             } else{
