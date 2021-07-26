@@ -1,6 +1,6 @@
 {
   "settings": {
-    "BOT_TOKEN": "ODYxNTkyNTk5MDA1NDk1Mjk2.YOMCow.ukoaTHaGJ2YqSPd6BxwCt6jWnaA"
+    "BOT_TOKEN": ""
   },
   "message": {
     "welcome": "Hi, I am support covalent bot\n\nI am ready to help you with your question.\nCommand: !ticket title problem"
