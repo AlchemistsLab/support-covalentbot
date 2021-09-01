@@ -1,12 +1,12 @@
 {
   "settings": {
-    "BOT_TOKEN": ""
+    "BOT_TOKEN": "ODYxNTkyNTk5MDA1NDk1Mjk2.YOMCow.JhpLbaEFIdr9aAIt-SGqkdM2kyI"
   },
   "mysql": {
-    "host": "",
-    "user": "",
-    "password": "",
-    "database": ""
+    "host": "localhost",
+    "user": "root",
+    "password": "Nek55tos",
+    "database": "covalent"
   },
   "setWaitingTime": 25
 }

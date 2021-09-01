@@ -1,5 +1,4 @@
 const Discord = require("discord.js");
-const { Client } = require("discord-slash-commands-client");
 
 const config = require("./config.json");
 const waitingTimeConfig = require("./waitingTimeConfig.json");
@@ -60,7 +59,7 @@ async function checkEmptyTicket(ticket) {
 }
 
 const bot = function () {
-    client.on('ready', () => {ы
+    client.on('ready', () => {
         client.api.applications(client.user.id).commands.post({
             data: {
                 name: "ticket",
@@ -427,11 +426,7 @@ const bot = function () {
                 message.reply("Your discord id: " + message.author.id);
                 break
         }
-
-
-
     });
-
     client.login(config["settings"]["BOT_TOKEN"]);
 }
 
