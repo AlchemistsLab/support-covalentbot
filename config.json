@@ -1,0 +1,12 @@
+{
+  "settings": {
+    "BOT_TOKEN": ""
+  },
+  "mysql": {
+    "host": "",
+    "user": "",
+    "password": "",
+    "database": ""
+  },
+  "setWaitingTime": 25
+}
