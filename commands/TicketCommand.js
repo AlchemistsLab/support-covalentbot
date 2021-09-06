@@ -47,8 +47,29 @@ module.exports = class TicketCommand {
         ticket.clearMessageIDs()
         ticket.addMessageID(message_id);
         await database.createTicket(ticket);
-        data.message.reply(`Excellent! Your ticket has been sent!\nNumber: ${await database.getLastCreatedTicketId(user)}\nTitle: ${user.ticket.title}\nDescription: ${user.ticket.description}\n⏳ Estimated waiting time: ${waitingTimeConfig["waitingTime"]} minutes`);
+
+        const ticket_id = await database.getLastCreatedTicketId(user);
+        data.message.reply(`Excellent! Your ticket has been sent!\nNumber: ${ticket_id}\nTitle: ${user.ticket.title}\nDescription: ${user.ticket.description}\n⏳ Estimated waiting time: ${waitingTimeConfig["waitingTime"]} minutes`);
+
+        const listAdminID = await database.getListRoleId("admin");
+        if (listAdminID.length === 0) return;
+        for (let row of listAdminID) {
+            const discord_id = row.discord_id;
+            const channel = await data.client.users.fetch(discord_id);
+            if (!channel) return;
+            const select = new this.data.disbut.MessageMenu()
+                .setID((`viewAdminTicket_${ticket.status}`))
+                .setPlaceholder(`Select ticket PENDING`);
+            const option = new this.data.disbut.MessageMenuOption()
+                .setLabel(utils.cut(`Title: ${ticket.title}`))
+                .setValue(`ticketId_${ticket_id}`)
+                .setDescription(utils.cut(`Created: ${user.username}`));
+            select.addOption(option);
+            await channel.send(`admin, a new ticket has appeared!`, select);
+
+        }
     }
+
     async showCreatingPanel(/*User*/ user) {
 
         let btnPostTicket = new this.data.disbut.MessageButton()
@@ -78,27 +99,35 @@ module.exports = class TicketCommand {
             btnPostTicketDescription.setLabel('Change Description')
         }
 
-
         let btnTicketClose = new this.data.disbut.MessageButton()
             .setStyle('red')
             .setLabel('Cancel')
             .setID('btnTicketClose')
+
 
         let row = new this.data.disbut.MessageActionRow()
             .addComponents(btnPostTicket, btnPostTicketTitle, btnPostTicketDescription, btnTicketClose);
 
         let title = (user.ticket.title === undefined) ? "not filled" : user.ticket.title;
         let description = (user.ticket.description === undefined || user.ticket.description === "") ? "not filled" : user.ticket.description;
-        let text_message = `Title: ${title}\nDescription: ${description}\n\nClick on the desired button to fill`;
+
+        let pattern = "- Paste URL\n- Describe Issue\n- Time Issue Started\n- Frequency of Issue\n- Issue happening constantly or intermittently\n- Describe your exact use case";
+
+        let text_message = `Title: ${title}\nDescription: ${description}\n\nPlease create a ticket according to the following template:\n${pattern}\n\nClick on the desired button to fill`;
 
         this.data.message.channel.send(text_message, row);
     }
+
+    async showRequireFields(/*User*/ user) {
+
+    }
+
     async showMotd(/*User*/ user) {
         const btn_createTicket = new this.data.disbut.MessageButton()
             .setID('btnCreateTicket')
             .setStyle('green')
             .setLabel('Create ticket')
-        if (user.ticket || user.ticket !== undefined) {
+        if (user.ticket) {
             btn_createTicket.setStyle('blurple').setLabel('Continue filling');
         }
 

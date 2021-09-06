@@ -5,5 +5,5 @@
 # ignored files/dirs
 node_modules/
 .idea/
-test.js
+MailSender.js
 config.json

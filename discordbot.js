@@ -12,6 +12,13 @@ const UserManager = require("./UserManager.js");
 const Database = require("./Database.js");
 const Ticket = require("./Ticket");
 
+const Utils = require("./Utils");
+const utils = new Utils();
+
+const MailSender = require("./MailSender");
+const mailSender = new MailSender();
+mailSender.setTransporter();
+
 const client = new Discord.Client();
 disbut(client);
 const userManager = new UserManager();
@@ -22,7 +29,8 @@ const pool = createPool({
     host            : config["mysql"]["host"],
     user            : config["mysql"]["user"],
     password        : config["mysql"]["password"],
-    database        : config["mysql"]["database"]
+    database        : config["mysql"]["database"],
+    charset         : "utf8mb4_unicode_ci"
 });
 const database = new Database(pool);
 
@@ -44,7 +52,15 @@ async function responseMessage(button) {
      let tempMessageID = button.clicker.user.lastMessageID;
      setInterval((function fn() {
          if (button.clicker.user.lastMessageID !== tempMessageID) {
-             resolve(button.clicker.user.lastMessage.content);
+
+             let content = button.clicker.user.lastMessage.content;
+
+             let Attachment = (button.clicker.user.lastMessage.attachments).array();
+             Attachment.forEach(function(attachment) {
+                 content += "\n" + attachment.url;
+             })
+
+             resolve(content);
              clearInterval(this);
          } else {
              return fn;
@@ -88,7 +104,7 @@ const bot = function () {
                         .setID('btnCreateTicket')
                         .setStyle('green')
                         .setLabel('Create ticket')
-                    if (user.ticket || user.ticket !== undefined) {
+                    if (user.ticket) {
                         btn_createTicket.setStyle('blurple').setLabel('Continue filling');
                     }
 
@@ -121,7 +137,7 @@ const bot = function () {
                         .setID('btnCreateTicket')
                         .setStyle('green')
                         .setLabel('Create ticket')
-                    if (user.ticket || user.ticket !== undefined) {
+                    if (user.ticket) {
                         btn_createTicket1.setStyle('blurple').setLabel('Continue filling');
                     }
                     const row1 = new data.disbut.MessageActionRow()
@@ -129,8 +145,6 @@ const bot = function () {
 
                     const channel1 = await data.client.users.fetch(data.interaction.user.id);
                     channel1.send(user.getUsername() + ", if you have any questions, feel free to ask us.", row1);
-                    // const user = await data.client.users.fetch(data.interaction.user.id);
-                    // user.send(user.getUsername() + ", if you have any questions, feel free to ask us.", row1);
                     break;
             }
         });
@@ -224,7 +238,7 @@ const bot = function () {
         const user = userManager.getUser(button.clicker.user.id);
         switch (button.id) {
             case "btnCreateTicket":
-                user.ticket = new Ticket(user);
+                if (!user.ticket) user.ticket = new Ticket(user);
                 await new TicketCommand(data).showCreatingPanel(user);
                 break;
             case "btnPostTicketTitle":
@@ -236,13 +250,13 @@ const bot = function () {
                 const response_title = await responseMessage(button);
 
                 if (response_title.toString().length > 100) {
-                    button.clicker.user.lastMessage.reply("Please enter your title below 100 characters");
+                    await button.clicker.user.lastMessage.reply("Please enter your title below 100 characters");
                     break;
                 }
 
                 user.ticket.title = response_title;
                 await button.clicker.user.lastMessage.reply("Ticket title set: " + response_title);
-                new TicketCommand(data).showCreatingPanel(userManager.getUser(button.clicker.user.id));
+                await new TicketCommand(data).showCreatingPanel(userManager.getUser(button.clicker.user.id));
                 break;
             case "btnPostTicketDescription":
                 if (await checkEmptyTicket(user.ticket)) {
@@ -254,49 +268,70 @@ const bot = function () {
                 const response_description = await responseMessage(button);
 
                 if (response_description.toString().length > 2000) {
-                    button.clicker.user.lastMessage.reply("Please enter your description below 2000 characters");
+                    await button.clicker.user.lastMessage.reply("Please enter your description below 2000 characters");
                     break;
                 }
 
                 user.ticket.clearDescription();
                 user.ticket.addTextInDescription(response_description);
-                button.message.reply("Ticket description set: " + response_description);
-                new TicketCommand(data).showCreatingPanel(userManager.getUser(button.clicker.user.id));
+                await button.message.reply("Ticket description set: " + response_description);
+                await new TicketCommand(data).showCreatingPanel(userManager.getUser(button.clicker.user.id));
                 break;
             case "btnPostTicket":
                 if (await checkEmptyTicket(user.ticket)) {
                     await button.message.reply("Please create ticket.");
                     break;
                 }
-
                 await new TicketCommand(data).postTicket(user, database);
                 user.ticket = null;
                 break;
             case "btnMyTickets":
-                new TicketCommand(data).showOwnTicket(userManager.getUser(button.clicker.user.id), pool);
+                await new TicketCommand(data).showOwnTicket(userManager.getUser(button.clicker.user.id), pool);
                 break;
             case "btnTicketClose":
                 userManager.getUser(button.clicker.user.id).clearTicket();
                 new TicketCommand(data).showMotd(userManager.getUser(button.clicker.user.id));
+                break
         }
 
 
         if (button.id.includes("btnAnswerTicket_")) {
-            const ticked_id = button.id.split("_")[1];
-            data.message.reply("Enter additional message");
+            const ticket_id = button.id.split("_")[1];
+            await data.message.reply("Enter additional message");
             const response_message = await responseMessage(button);
-            const current_ticket = await database.getOfflineTicket(ticked_id);
+            const current_ticket = await database.getOfflineTicket(ticket_id);
             current_ticket.status = "PENDING";
 
             const message_id = await database.createMessageID(user, response_message);
             current_ticket.addMessageID(message_id);
 
-            await database.updateTicket(ticked_id, current_ticket);
-            data.message.reply("Done.");
+            await database.updateTicket(ticket_id, current_ticket);
+            await data.message.reply("Done.");
+
+
+            const listRoleID = await database.getListRoleId(current_ticket.role);
+            if (listRoleID.length === 0) return;
+            for (let row of listRoleID) {
+                const discord_id = row.discord_id;
+                const channel = await data.client.users.fetch(discord_id);
+                if (!channel) return;
+                const select = new data.disbut.MessageMenu()
+                    .setID((`viewAdminTicket_${current_ticket.status}`))
+                    .setPlaceholder(`Select ticket ${current_ticket.role}`);
+                const option = new data.disbut.MessageMenuOption()
+                    .setLabel(utils.cut(`Title: ${current_ticket.title}`))
+                    .setValue(`ticketId_${ticket_id}`)
+                    .setDescription(utils.cut(`Created: ${user.username}`));
+                select.addOption(option);
+                await channel.send(`${current_ticket.role}, a new ticket has appeared!`, select);
+            }
         }
+
+
+
         if (button.id.includes("btnAnswerModeratorTicket_")) {
             const ticked_id = button.id.split("_")[1];
-            data.message.reply("Enter additional message");
+            await data.message.reply("Enter additional message");
             const response_message = await responseMessage(button);
             const current_ticket = await database.getOfflineTicket(ticked_id);
             const message_id = await database.createMessageID(user, response_message);
@@ -306,7 +341,7 @@ const bot = function () {
             current_ticket.answered = await database.getName(button.clicker.user.id);
 
             await database.updateTicket(ticked_id, current_ticket);
-            data.message.reply("Done.");
+            await data.message.reply("Done.");
 
             await new AdminCommand(data).showTicket(ticked_id, database, await database.getRole(button.clicker.user.id));
             client.users.fetch(current_ticket.ownerDiscordID, false).then(user => {
@@ -330,26 +365,56 @@ const bot = function () {
             ticket.date_closed = date.toLocaleDateString() + " " + date.toLocaleTimeString();
             ticket.status = "CLOSED";
             await database.updateTicket(ticked_id, ticket);
-            data.message.reply("Ticket closed");
+            await data.message.reply("Ticket closed");
         }
+
+        if (button.id.includes("btnSendMain_")) {
+            const ticket_id = button.id.split("_")[1];
+            const ticket = await database.getOfflineTicket(ticket_id);
+
+
+            const ticket_info = await getInfoTicket(ticket_id, ticket, database);
+
+
+
+            let fullDescription = `Technical information:<br>
+            ----------<br>
+            Created user discord id: ${ticket.ownerDiscordID}<br>
+            Status: ${ticket.status}<br>
+            Date ${ticket.date_created} / ${ticket.date_closed}<br>
+            Role: ${ticket.role}<br>
+            ----------<br>
+            Ticket:<br>
+            Title: ${ticket.title}<br>
+            Messages:<br>
+            `;
+
+            for (let answer_object of ticket_info.messages) {
+                fullDescription += `${answer_object.name} say: ${answer_object.message} <br>`;
+            }
+
+            mailSender.send(config["mail"]["user"], config["mail"]["recipient"], `Received ticket #${ticket_id}`, fullDescription);
+            await data.message.reply("Data ticket sent to support bot email");
+
+        }
+
         if (button.id.includes("btnSetRole_")) {
             const ticked_id = button.id.split("_")[1];
             const ticket = await database.getOfflineTicket(ticked_id);
 
-            data.message.reply("Enter text role.");
+            await data.message.reply("Enter text role.");
 
-            const response_message = await responseMessage(button);
-            ticket.role = response_message
+            ticket.role = await responseMessage(button)
             await database.updateTicket(ticked_id, ticket);
 
-            data.message.reply("Ticket set role.");
+            await data.message.reply("Ticket set role.");
         }
         if (button.id.includes("btnBackTicket_")) {
             const ticked_id = button.id.split("_")[1];
             const ticket = await database.getOfflineTicket(ticked_id);
             ticket.role = "admin";
             await database.updateTicket(ticked_id, ticket);
-            data.message.reply("Ticket back in admins.");
+            await data.message.reply("Ticket back in admins.");
         }
         if (button.id.includes("btnCloseModeratorTicket_")) {
             const ticked_id = button.id.split("_")[1];
@@ -358,7 +423,7 @@ const bot = function () {
             const date = new Date();
             ticket.date_closed = date.toLocaleDateString() + " " + date.toLocaleTimeString();
             await database.updateTicket(ticked_id, ticket);
-            data.message.reply("Ticket closed.");
+            await data.message.reply("Ticket closed.");
         }
 
 

@@ -155,4 +155,16 @@ module.exports = class Database {
             });
         });
     }
+
+    async getListRoleId(role) {
+        const _pool = this._pool;
+        return await new Promise((resolve, reject) => {
+            _pool.query("SELECT * FROM users WHERE role=?", [role], async function (error, results) {
+                resolve(results);
+            });
+        });
+    }
+
+
+
 }

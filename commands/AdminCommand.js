@@ -52,6 +52,11 @@ module.exports = class AdminCommand {
             .setLabel('Set role')
             .setID(`btnSetRole_${ticket_id}`);
 
+        let button4 = new this.data.disbut.MessageButton()
+            .setStyle('blurple')
+            .setLabel('Send to support email')
+            .setID(`btnSendMain_${ticket_id}`);
+
         if (userRole !== "admin") {
             button3 = new this.data.disbut.MessageButton()
                 .setStyle('blurple')
@@ -64,11 +69,13 @@ module.exports = class AdminCommand {
             row.addComponent(button1);
             row.addComponent(button2);
             row.addComponent(button3);
-            this.data.message.channel.send(`--= Action =--`, row);
+            row.addComponent(button4);
+            this.data.message.channel.send(`----------`, row);
         } else {
             row.addComponent(button1);
             row.addComponent(button3);
-            this.data.message.channel.send(`--= Action =--`, row);
+            row.addComponent(button4);
+            this.data.message.channel.send(`----------`, row);
         }
     }
 
@@ -83,17 +90,6 @@ module.exports = class AdminCommand {
         let count = i;
         while (count < dataTickets.length) {
             if (count % 25 === 0 && count !== 0) {
-                // const nextPage = new this.data.disbut.MessageMenuOption()
-                //     .setLabel(`Next ${count+2}`)
-                //     .setValue(`next_${count+2}`)
-                //     .setDescription(`Next page`);
-                // select.addOption(nextPage);
-                //
-                // const backPage = new this.data.disbut.MessageMenuOption()
-                //     .setLabel(`Back ${count-23}`)
-                //     .setValue(`back_${count-23}`)
-                //     .setDescription(`Back page`);
-                // select.addOption(backPage);
                 break;
             }
             let data = dataTickets[count];
